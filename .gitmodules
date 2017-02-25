@@ -1,0 +1,3 @@
+[submodule "proto"]
+	path = proto
+	url = https://github.com/jhongpananon/simple_google_protocol_buffer.git
