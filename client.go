@@ -9,19 +9,20 @@ import (
 var client_map map[*client_S]int
 
 type client_S struct {
+    // incoming chan string
     outgoing   chan string
     rx_io      *bufio.Reader
     tx_io      *bufio.Writer
     conn       net.Conn
-    client_ptr *client_S
+    connection *client_S
 }
 
 func (client *client_S) Read() {
     for {
         line, err := client.rx_io.ReadString('\n')
         if err == nil {
-            if client.client_ptr != nil {
-                client.client_ptr.outgoing <- line
+            if client.connection != nil {
+                //client.connection.outgoing <- line
             }
             fmt.Println(line)
         } else {
@@ -32,8 +33,8 @@ func (client *client_S) Read() {
 
     client.conn.Close()
     delete(client_map, client)
-    if client.client_ptr != nil {
-        client.client_ptr.client_ptr = nil
+    if client.connection != nil {
+        client.connection.connection = nil
     }
     client = nil
 }
@@ -45,47 +46,42 @@ func (client *client_S) Write() {
     }
 }
 
-//func (client *client_S) Listen() {
-    // Start the two goroutines to read/write
-//    go client.Read()
-//    go client.Write()
-//}
+func (client *client_S) Listen() {
+    go client.Read()
+    go client.Write()
+}
 
-func Newclient(client_ptr net.Conn) *client_S {
-    tx_io := bufio.NewWriter(client_ptr)
-    rx_io := bufio.NewReader(client_ptr)
+func NewClient(connection net.Conn) *client_S {
+    tx_io := bufio.NewWriter(connection)
+    rx_io := bufio.NewReader(connection)
 
     client := &client_S {
+        // incoming: make(chan string),
         outgoing: make(chan string),
-        conn:     client_ptr,
+        conn:     connection,
         rx_io:    rx_io,
         tx_io:    tx_io,
     }
-    //client.Listen()
+    client.Listen()
 
     return client
 }
 
 func main() {
     client_map = make(map[*client_S]int)
-
-    // net Listen for a TCP socket on this port
-    listener, _ := net.Listen("tcp", ":4005")
     for {
-        // Block on accept until client connects
-        conn, err := listener.Accept()
+        // net TCP dial to the remote server
+        conn, err := net.Dial("tcp", "squad:4005")
         if err != nil {
             fmt.Println(err.Error())
         }
 
-        // Start a new client connection
-        client := Newclient(conn)
-
-        // Loop through the client_map list
+        // New client connected
+        client := NewClient(conn)
         for clientList, _ := range client_map {
-            if clientList.client_ptr == nil {
-                client.client_ptr = clientList
-                clientList.client_ptr = client
+            if clientList.connection == nil {
+                client.connection = clientList
+                clientList.connection = client
                 fmt.Println("Connected")
             }
         }
